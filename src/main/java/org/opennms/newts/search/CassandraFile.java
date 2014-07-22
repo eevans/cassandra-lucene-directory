@@ -1,6 +1,8 @@
 package org.opennms.newts.search;
 
 
+import static com.datastax.driver.core.querybuilder.QueryBuilder.batch;
+import static com.datastax.driver.core.querybuilder.QueryBuilder.delete;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.gte;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.insertInto;
@@ -29,6 +31,7 @@ import java.util.UUID;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Statement;
+import com.datastax.driver.core.querybuilder.Batch;
 import com.google.common.collect.Lists;
 
 // XXX: Not threadsafe. At all.
@@ -214,7 +217,7 @@ class CassandraFile {
         Statement s = select(C_FILES_INDEX_NAME).from(T_FILES_INDEX).where(eq(C_FILES_INDEX_INDEX, session.getIndexName()));
 
         for (Row row : session.execute(s)) {
-            results.add(row.getString(CassandraConstants.C_FILES_INDEX_ID));
+            results.add(row.getString(CassandraConstants.C_FILES_INDEX_NAME));
         }
 
         return results.toArray(new String[] {});
@@ -225,8 +228,34 @@ class CassandraFile {
     }
 
     static void deleteFile(CassandraSession session, String name) throws IOException {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException();
+
+        // Get the files surrogate key.
+        Statement select = select(C_FILES_INDEX_ID).from(T_FILES_INDEX)
+                .where(eq(C_FILES_INDEX_INDEX, session.getIndexName())).and(eq(C_FILES_INDEX_NAME, name));
+
+        ResultSet rs = session.execute(select);
+        Row r = rs.one();
+
+        // No such file.
+        if (r == null) {
+            throw new FileNotFoundException(name);
+        }
+
+        UUID id = r.getUUID(C_FILES_INDEX_ID);
+
+        Batch batch = batch();
+
+        // Delete from files table.
+        batch.add(delete().from(T_FILES).where(eq(C_FILES_INDEX, session.getIndexName())).and(eq(C_FILES_ID, id)));
+
+        // Delete from index table.
+        batch.add(
+                delete().from(T_FILES_INDEX)
+                    .where(eq(C_FILES_INDEX_INDEX, session.getIndexName())).and(eq(C_FILES_INDEX_NAME, name))
+        );
+
+        session.execute(batch);
+
     }
 
     static long fileLength(CassandraSession session, String name) throws IOException {

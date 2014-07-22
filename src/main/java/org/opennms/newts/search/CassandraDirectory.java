@@ -20,6 +20,10 @@ public class CassandraDirectory extends Directory {
         this("newts", "localhost", 9042, "index");
     }
 
+    CassandraDirectory(String indexName) {
+        this("newts", "localhost", 9042, indexName);
+    }
+
     public CassandraDirectory(String keyspace, String hostname, int port, String indexName) {
         m_session = new CassandraSession(keyspace, hostname, port, indexName);
     }
