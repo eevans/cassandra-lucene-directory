@@ -10,59 +10,68 @@ import java.util.Arrays;
 import java.util.Set;
 
 import org.apache.lucene.store.IOContext;
-import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.google.common.collect.Sets;
 
 
-public class CassandraDirectoryTest {
+public class CassandraDirectoryTest extends AbstractCassandraTestCase {
+
+    private CassandraDirectory m_directory;
 
     @BeforeClass
     public static void setUpClass() {
         CassandraFile.SEGMENT_SIZE = 256;
     }
 
+    @Before
+    public void setUp() throws Exception {
+        super.before();
+        m_directory = new CassandraDirectory(CASSANDRA_KEYSPACE, CASSANDRA_HOST, CASSANDRA_PORT, "CassandraDirectoryTest");
+    }
+
+    @After
+    public void tearDown() throws IOException {
+        super.after();
+        m_directory.close();
+    }
+
     @Test
     public void testExists() throws IOException {
-        try (CassandraDirectory d = new CassandraDirectory("file-exists-test.index")) {
-            try (IndexOutput o = d.createOutput("afile", new IOContext())) {
-                o.writeByte((byte) 0);
-            }
-
-            assertThat(d.fileExists("afile"), is(true));
-
+        try (IndexOutput o = m_directory.createOutput("afile", new IOContext())) {
+            o.writeByte((byte) 0);
         }
+
+        assertThat(m_directory.fileExists("afile"), is(true));
+
     }
 
     @Test
     public void testLength() throws IOException {
-        try (CassandraDirectory d = new CassandraDirectory("delete-file-test.index")) {
-            try (IndexOutput o = d.createOutput("afile", new IOContext())) {
-                o.writeByte((byte) 0);
-            }
-
-            assertThat(d.fileLength("afile"), equalTo(1L));
-
+        try (IndexOutput o = m_directory.createOutput("afile", new IOContext())) {
+            o.writeByte((byte) 0);
         }
+
+        assertThat(m_directory.fileLength("afile"), equalTo(1L));
+
     }
-    
+
     @Test
     public void testDeleteFile() throws IOException {
-        try (CassandraDirectory d = new CassandraDirectory("delete-file-test.index")) {
-            try (IndexOutput o = d.createOutput("afile", new IOContext())) {
-                o.writeByte((byte) 0);
-            }
-
-            assertThat(Arrays.asList(d.listAll()).contains("afile"), is(true));
-
-            d.deleteFile("afile");
-
-            assertThat(Arrays.asList(d.listAll()).contains("afile"), is(false));
-
+        try (IndexOutput o = m_directory.createOutput("afile", new IOContext())) {
+            o.writeByte((byte) 0);
         }
+
+        assertThat(Arrays.asList(m_directory.listAll()).contains("afile"), is(true));
+
+        m_directory.deleteFile("afile");
+
+        assertThat(Arrays.asList(m_directory.listAll()).contains("afile"), is(false));
+
     }
 
     @Test
@@ -70,29 +79,24 @@ public class CassandraDirectoryTest {
 
         String[] names = new String[] { "once", "twice", "three", "times", "lady" };
 
-        try (CassandraDirectory d = new CassandraDirectory("list-files-test.index")) {
-            for (String name : names) {
-                try (IndexOutput o = d.createOutput(name, new IOContext())) {
-                    byte[] bites = name.getBytes();
-                    o.writeBytes(bites, bites.length);
-                }
+        for (String name : names) {
+            try (IndexOutput o = m_directory.createOutput(name, new IOContext())) {
+                byte[] bites = name.getBytes();
+                o.writeBytes(bites, bites.length);
             }
-
-            Set<String> in = Sets.newHashSet(names);
-            Set<String> out = Sets.newHashSet(d.listAll());
-
-            assertThat(in, is(equalTo(out)));
-
         }
+
+        Set<String> in = Sets.newHashSet(names);
+        Set<String> out = Sets.newHashSet(m_directory.listAll());
+
+        assertThat(in, is(equalTo(out)));
 
     }
 
     @Test
     public void testCreateOutput() throws Exception {
 
-        CassandraDirectory dir = new CassandraDirectory();
-
-        try (IndexOutput output = dir.createOutput("createOutputTest", new IOContext())) {
+        try (IndexOutput output = m_directory.createOutput("createOutputTest", new IOContext())) {
 
             byte[] bytes = new String("a").getBytes();
 
@@ -103,20 +107,15 @@ public class CassandraDirectoryTest {
             System.out.println("Wrote " + 513 * bytes.length + " bytes");
 
         }
-        finally {
-            dir.close();
-        }
 
     }
 
     @Test
     public void testCreateInput() throws IOException {
-               
-        try (CassandraDirectory d = new CassandraDirectory("create-input-test.index")) {
-            try (IndexInput i = d.openInput("aFile", new IOContext())) {
-                
-            }
-        }
+
+//        try (IndexInput i = m_directory.openInput("aFile", new IOContext())) {
+//
+//        }
 
     }
 
