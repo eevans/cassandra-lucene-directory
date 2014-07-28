@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.Set;
 
 import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -24,6 +25,30 @@ public class CassandraDirectoryTest {
         CassandraFile.SEGMENT_SIZE = 256;
     }
 
+    @Test
+    public void testExists() throws IOException {
+        try (CassandraDirectory d = new CassandraDirectory("file-exists-test.index")) {
+            try (IndexOutput o = d.createOutput("afile", new IOContext())) {
+                o.writeByte((byte) 0);
+            }
+
+            assertThat(d.fileExists("afile"), is(true));
+
+        }
+    }
+
+    @Test
+    public void testLength() throws IOException {
+        try (CassandraDirectory d = new CassandraDirectory("delete-file-test.index")) {
+            try (IndexOutput o = d.createOutput("afile", new IOContext())) {
+                o.writeByte((byte) 0);
+            }
+
+            assertThat(d.fileLength("afile"), equalTo(1L));
+
+        }
+    }
+    
     @Test
     public void testDeleteFile() throws IOException {
         try (CassandraDirectory d = new CassandraDirectory("delete-file-test.index")) {
@@ -80,6 +105,17 @@ public class CassandraDirectoryTest {
         }
         finally {
             dir.close();
+        }
+
+    }
+
+    @Test
+    public void testCreateInput() throws IOException {
+               
+        try (CassandraDirectory d = new CassandraDirectory("create-input-test.index")) {
+            try (IndexInput i = d.openInput("aFile", new IOContext())) {
+                
+            }
         }
 
     }

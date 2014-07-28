@@ -4,9 +4,7 @@ package org.opennms.newts.search;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.batch;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.delete;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
-import static com.datastax.driver.core.querybuilder.QueryBuilder.gte;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.insertInto;
-import static com.datastax.driver.core.querybuilder.QueryBuilder.lte;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.select;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -92,11 +90,11 @@ class CassandraFile {
         if (row != null) {
             m_id = row.getUUID(C_FILES_INDEX_ID);
 
-            ByteBuffer[] slice = getSegmentSlice(m_id, 0, 0);
-
-            if (slice.length > 0) {
-                m_length = slice[0].getLong();
-                m_numSegments = slice[0].getInt();
+            ByteBuffer slice = getSegment(0);
+            
+            if (slice != null) {
+                m_length = slice.getLong();
+                m_numSegments = slice.getInt();
             }
             else {
                 throw new IOException(String.format("Cannot read manifest for: %s (%s)", m_id, m_name));
@@ -108,22 +106,22 @@ class CassandraFile {
 
     }
 
-    private ByteBuffer[] getSegmentSlice(UUID id, int from, int to) {
+    ByteBuffer getSegment(long segmentNo) throws IOException {
 
         // XXX: This could be a prepared statement
         Statement query = select(C_FILES_DATA).from(T_FILES)
                 .where(  eq(C_FILES_INDEX,    m_session.getIndexName()))
-                .and  (  eq(C_FILES_ID,       id))
-                .and  ( gte(C_FILES_SEGMENT,  from))
-                .and  ( lte(C_FILES_SEGMENT,  to));
+                .and  (  eq(C_FILES_ID,       m_id))
+                .and  (  eq(C_FILES_SEGMENT,  segmentNo));
 
-        List<ByteBuffer> results = Lists.newArrayList();
+        ResultSet rs = m_session.execute(query);
+        Row r = rs.one();
 
-        for (Row row : m_session.execute(query)) {
-            results.add(row.getBytes(C_FILES_DATA));
+        if (r == null) {
+            throw new IOException(String.format("Cannot read segment %d of ID %s", segmentNo, m_id.toString()));
         }
 
-        return results.toArray(new ByteBuffer[] {});
+        return r.getBytes(C_FILES_DATA);
     }
 
     long getLength() {
@@ -259,8 +257,7 @@ class CassandraFile {
     }
 
     static long fileLength(CassandraSession session, String name) throws IOException {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException();
+        return new CassandraFile(session, name, Mode.READ).getLength();
     }
 
     static String getResourceDescription(CassandraSession session, String name) {

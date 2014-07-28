@@ -45,7 +45,7 @@ public class CassandraDirectory extends Directory {
 
     @Override
     public long fileLength(String name) throws IOException {
-        return new CassandraFile(m_session, name, CassandraFile.Mode.READ).getLength();
+        return CassandraFile.fileLength(m_session, name);
     }
 
     @Override
