@@ -7,9 +7,12 @@ import static org.junit.Assert.assertThat;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Random;
 import java.util.Set;
+import java.util.zip.CRC32;
 
 import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.junit.After;
 import org.junit.Before;
@@ -22,6 +25,8 @@ import com.google.common.collect.Sets;
 public class CassandraDirectoryTest extends AbstractCassandraTestCase {
 
     private CassandraDirectory m_directory;
+    private IOContext m_context = new IOContext();
+    private Random m_random = new Random();
 
     @BeforeClass
     public static void setUpClass() {
@@ -96,27 +101,84 @@ public class CassandraDirectoryTest extends AbstractCassandraTestCase {
     @Test
     public void testCreateOutput() throws Exception {
 
-        try (IndexOutput output = m_directory.createOutput("createOutputTest", new IOContext())) {
+        // 103 * 5 = 515 bytes (2 256 byte segments + 1 w/ remaining 3 bytes)
+        int numWrites = 103;
+        int bytesPerWrite = 5;
 
-            byte[] bytes = new String("a").getBytes();
+        try (IndexOutput output = m_directory.createOutput("testCreateOutput", m_context)) {
 
-            for (int i = 0; i < 513; i++) {
+            CRC32 crcIn = new CRC32();
+            byte[] bytes = new byte[bytesPerWrite];
+
+            for (int i = 0; i < numWrites; i++) {
+                randomBytes(bytes);
+                crcIn.update(bytes);
                 output.writeBytes(bytes, bytes.length);
             }
 
-            System.out.println("Wrote " + 513 * bytes.length + " bytes");
+            // Independently verify the calculated checksum
+            assertThat(output.getChecksum(), is(equalTo(crcIn.getValue())));
 
         }
+
+        // After the close...
+
+        // File should appear in a listing
+        assertThat(Arrays.asList(m_directory.listAll()).contains("testCreateOutput"), is(true));
+
+        // Reported size should be numWrites * bytesPerWrite in size
+        assertThat(m_directory.fileLength("testCreateOutput"), is(equalTo((long) (numWrites * bytesPerWrite))));
 
     }
 
     @Test
     public void testCreateInput() throws IOException {
 
-//        try (IndexInput i = m_directory.openInput("aFile", new IOContext())) {
-//
-//        }
+        long checksum;
+        int numWrites = 103;
+        int bytesPerWrite = 5;
+        int size = numWrites * bytesPerWrite;
 
+        // Write a file
+        try (IndexOutput out = m_directory.createOutput("testCreateInput", m_context)) {
+
+            byte[] bytes = new byte[bytesPerWrite];
+
+            for (int i = 0; i < numWrites; i++) {
+                randomBytes(bytes);
+                out.writeBytes(bytes, bytes.length);
+            }
+
+            checksum = out.getChecksum();
+
+        }
+
+        // File should appear in a listing
+        assertThat(Arrays.asList(m_directory.listAll()).contains("testCreateInput"), is(true));
+
+        // Read the file
+        try (IndexInput in = m_directory.openInput("testCreateInput", m_context)) {
+
+            CRC32 crcOut = new CRC32();
+
+            // Length is sane
+            assertThat(in.length(), is(equalTo((long) size)));
+
+            // Read and calculate an independent CRC
+            for (int i = 0; i < in.length(); i++) {
+                byte b = in.readByte();
+                crcOut.update(b);
+            }
+
+            // Checksum matches
+            assertThat(crcOut.getValue(), is(equalTo(checksum)));
+
+        }
+
+    }
+
+    private void randomBytes(byte[] bytes) {
+        m_random.nextBytes(bytes);
     }
 
 }

@@ -25,12 +25,12 @@ public class CassandraIndexInput extends BufferedIndexInput {
         ByteBuffer buf = getCurrentSegment();
 
         if (length <= buf.remaining()) {
-            seekInternal(getFilePointer() + length);
+            seekInternal(getPointer() + length);
             buf.get(b, offset, length);
         }
         else { // length > remaining
             int remaining = buf.remaining();
-            seekInternal(getFilePointer() + remaining);
+            seekInternal(getPointer() + remaining);
             buf.get(b, offset, remaining);
             readInternal(b, offset + remaining, length-remaining);
         }
