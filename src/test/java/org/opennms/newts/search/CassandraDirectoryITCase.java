@@ -22,7 +22,7 @@ import org.junit.Test;
 import com.google.common.collect.Sets;
 
 
-public class CassandraDirectoryTest extends AbstractCassandraTestCase {
+public class CassandraDirectoryITCase extends AbstractCassandraTestCase {
 
     private CassandraDirectory m_directory;
     private IOContext m_context = new IOContext();
@@ -30,13 +30,13 @@ public class CassandraDirectoryTest extends AbstractCassandraTestCase {
 
     @BeforeClass
     public static void setUpClass() {
-        CassandraFile.SEGMENT_SIZE = 256;
+        CassandraFile.SEGMENT_SIZE = 5;
     }
 
     @Before
     public void setUp() throws Exception {
         super.before();
-        m_directory = new CassandraDirectory(CASSANDRA_KEYSPACE, CASSANDRA_HOST, CASSANDRA_PORT, "CassandraDirectoryTest");
+        m_directory = new CassandraDirectory(CASSANDRA_KEYSPACE, CASSANDRA_HOST, CASSANDRA_PORT, "CassandraDirectoryITCase");
     }
 
     @After
@@ -135,7 +135,7 @@ public class CassandraDirectoryTest extends AbstractCassandraTestCase {
     public void testCreateInput() throws IOException {
 
         long checksum;
-        int numWrites = 103;
+        int numWrites = 2;
         int bytesPerWrite = 5;
         int size = numWrites * bytesPerWrite;
 
@@ -153,6 +153,7 @@ public class CassandraDirectoryTest extends AbstractCassandraTestCase {
 
         }
 
+        
         // File should appear in a listing
         assertThat(Arrays.asList(m_directory.listAll()).contains("testCreateInput"), is(true));
 
@@ -166,8 +167,9 @@ public class CassandraDirectoryTest extends AbstractCassandraTestCase {
 
             // Read and calculate an independent CRC
             for (int i = 0; i < in.length(); i++) {
-                byte b = in.readByte();
-                crcOut.update(b);
+                byte[] bs = new byte[1];
+                in.readBytes(bs, 0, 1);
+                crcOut.update(bs[0]);
             }
 
             // Checksum matches

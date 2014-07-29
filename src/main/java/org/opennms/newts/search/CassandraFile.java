@@ -178,7 +178,7 @@ class CassandraFile {
             m_length += remaining;
             m_buffer.put(b, offset, remaining);
             syncBuffer();
-            writeBytes(b, offset + remaining, b.length - remaining);
+            writeBytes(b, offset + remaining, length - remaining);
         }
 
     }

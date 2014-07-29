@@ -15,17 +15,19 @@ import org.apache.lucene.store.LockFactory;
 public class CassandraDirectory extends Directory {
 
     private CassandraSession m_session;
+    private LockFactory m_lockFactory;
 
-    CassandraDirectory() {
+    CassandraDirectory() throws IOException {
         this("newts", "localhost", 9042, "index");
     }
 
-    CassandraDirectory(String indexName) {
+    CassandraDirectory(String indexName) throws IOException {
         this("newts", "localhost", 9042, indexName);
     }
 
-    public CassandraDirectory(String keyspace, String hostname, int port, String indexName) {
+    public CassandraDirectory(String keyspace, String hostname, int port, String indexName) throws IOException {
         m_session = new CassandraSession(keyspace, hostname, port, indexName);
+        setLockFactory(new CassandraLockFactory(m_session));
     }
 
     @Override
@@ -65,14 +67,12 @@ public class CassandraDirectory extends Directory {
 
     @Override
     public Lock makeLock(String name) {
-        // TODO Auto-generated method stub
-        return null;
+        return m_lockFactory.makeLock(name);
     }
 
     @Override
     public void clearLock(String name) throws IOException {
-        // TODO Auto-generated method stub
-
+        m_lockFactory.clearLock(name);
     }
 
     @Override
@@ -83,14 +83,12 @@ public class CassandraDirectory extends Directory {
 
     @Override
     public void setLockFactory(LockFactory lockFactory) throws IOException {
-        // TODO Auto-generated method stub
-
+        m_lockFactory = lockFactory;
     }
 
     @Override
     public LockFactory getLockFactory() {
-        // TODO Auto-generated method stub
-        return null;
+        return m_lockFactory;
     }
 
 }
